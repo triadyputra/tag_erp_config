@@ -36,6 +36,7 @@
         public string Divisi { get; set; }
         public DateTime TMT { get; set; }
         public string Cabang { get; set; }
+        public string Password { get; set; }
 
         public byte[]? Photo { get; set; }
     }
