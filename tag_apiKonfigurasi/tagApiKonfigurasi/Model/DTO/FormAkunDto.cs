@@ -9,8 +9,10 @@ namespace tagApiKonfigurasi.Model.DTO
         [Required(ErrorMessage = "UserName wajib diisi")]
         public string? UserName { get; set; }
 
-        [Required(ErrorMessage = "FullName wajib diisi")]
+        /// <summary>Nama lengkap. Wajib diisi manual jika tanpa No KTP; jika kosong saat simpan, API memakai username.</summary>
         public string? FullName { get; set; }
+
+        public string? NoKtp { get; set; }
 
         public string? Email { get; set; }
         public string? Photo { get; set; }

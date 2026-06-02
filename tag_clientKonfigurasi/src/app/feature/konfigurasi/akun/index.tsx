@@ -163,7 +163,7 @@ const AkunListComponent = () => {
         justifyContent="space-between"
       >
         <TextField
-          placeholder="Search akun"
+          placeholder="Cari nama, No KTP, atau username"
           size="small"
           value={searchTerm}
           onChange={(e) => {
@@ -230,8 +230,9 @@ const AkunListComponent = () => {
               <TableCell  sx={headerStyle} padding="checkbox">
                 <CustomCheckbox checked={selectAll} onChange={toggleSelectAll} />
               </TableCell>
-              <TableCell  sx={headerStyle}>Nama Lengkap</TableCell>
-              <TableCell  sx={headerStyle}>Username</TableCell>
+              <TableCell sx={headerStyle}>No. KTP</TableCell>
+              <TableCell sx={headerStyle}>Nama Lengkap</TableCell>
+              <TableCell sx={headerStyle}>Username</TableCell>
               <TableCell  sx={headerStyle}>Group</TableCell>
               <TableCell  sx={headerStyle}>Email</TableCell>
               <TableCell  sx={headerStyle}>Status</TableCell>
@@ -242,19 +243,19 @@ const AkunListComponent = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={8} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             ) : error ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={8} align="center">
                   {String((error as any)?.message || "Gagal mengambil data")}
                 </TableCell>
               </TableRow>
             ) : akuns.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={8} align="center">
                   No data found
                 </TableCell>
               </TableRow>
@@ -268,6 +269,7 @@ const AkunListComponent = () => {
                     />
                   </TableCell>
 
+                  <TableCell>{akun.NoKtp ?? "-"}</TableCell>
                   <TableCell>{akun.FullName}</TableCell>
                   <TableCell>{akun.UserName}</TableCell>
 

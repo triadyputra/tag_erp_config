@@ -8,6 +8,7 @@ using tagApiKonfigurasi.Filter;
 using tagApiKonfigurasi.Model;
 using tagApiKonfigurasi.Model.DTO;
 using tagApiKonfigurasi.Services.Menu;
+using tagApiKonfigurasi.Services.Role;
 
 namespace tagApiKonfigurasi.Controllers.konfigurasi
 {
@@ -20,12 +21,30 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
         private readonly UserManager<ApplicationUser> userManager;
         private readonly RoleManager<ApplicationRole> roleManager;
         private readonly IMenuService _menuService;
-        public RoleController(ApplicationDbContext context, RoleManager<ApplicationRole> roleManager, UserManager<ApplicationUser> userManager, IMenuService menuService)
+        private readonly IRoleAccessMergeService _roleAccessMergeService;
+
+        public RoleController(
+            ApplicationDbContext context,
+            RoleManager<ApplicationRole> roleManager,
+            UserManager<ApplicationUser> userManager,
+            IMenuService menuService,
+            IRoleAccessMergeService roleAccessMergeService)
         {
             _context = context;
             this.userManager = userManager;
             this.roleManager = roleManager;
             _menuService = menuService;
+            _roleAccessMergeService = roleAccessMergeService;
+        }
+
+        private string? GetRequestModul() =>
+            HttpContext.Request.Headers["X-Modul"].FirstOrDefault();
+
+        private static string? ResolveMenuModulFilter(string? modul)
+        {
+            if (string.IsNullOrWhiteSpace(modul) || modul.Equals("CONFIG", StringComparison.OrdinalIgnoreCase))
+                return null;
+            return modul;
         }
 
         [ApiKeyAuthorize]
@@ -137,7 +156,18 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
 
                 // Update role properties
                 role.Name = updateRoleDto.Name;
-                role.Access = updateRoleDto.Access;
+                var requestModul = GetRequestModul();
+                if (requestModul != null && requestModul.Equals("HRD", StringComparison.OrdinalIgnoreCase))
+                {
+                    role.Access = await _roleAccessMergeService.MergeModulAccessAsync(
+                        role.Access,
+                        updateRoleDto.Access,
+                        "HRD");
+                }
+                else
+                {
+                    role.Access = updateRoleDto.Access;
+                }
                 role.Keterangan = updateRoleDto.Keterangan;
                 role.Photo = string.IsNullOrEmpty(updateRoleDto.Photo) ? null : updateRoleDto.Photo;
 
@@ -225,9 +255,11 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
 
         [HttpGet]
         [Route("accesRole")]
-        public async Task<IActionResult> accesRole()
+        public async Task<IActionResult> accesRole([FromQuery] string? modul = null)
         {
-            var data = await _menuService.GetMenuAsync(null);
+            var resolvedModul = modul ?? GetRequestModul();
+            var filter = ResolveMenuModulFilter(resolvedModul);
+            var data = await _menuService.GetMenuAsync(filter);
             return Ok(data);
         }
     }

@@ -86,7 +86,7 @@ namespace tagApiKonfigurasi.Data
             // =========================
             builder.Entity<MstAction>(entity =>
             {
-                entity.HasKey(x => x.IdAction);
+                entity.HasKey(x => new { x.IdController, x.IdAction });
 
                 entity.Property(x => x.IdAction)
                     .HasMaxLength(50);

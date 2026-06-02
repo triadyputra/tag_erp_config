@@ -58,13 +58,12 @@ export function useComboCabang() {
         const json = await res.json();
 
         if (active && Array.isArray(json)) {
-          // 🔑 NORMALISASI DATA DI SINI
           const mapped: ComboItem[] = json.map((x: any) => ({
-            value: x.Id,
-            title: x.Name,
+            value: String(x.value ?? x.KdCabang ?? x.Id ?? ""),
+            title: String(x.title ?? x.NmCabang ?? x.Name ?? ""),
           }));
 
-          setCabang(json);
+          setCabang(mapped);
         }
       } catch (err) {
         console.error("Gagal load combo cabang", err);
@@ -81,4 +80,45 @@ export function useComboCabang() {
   }, []);
 
   return { cabang, loading };
+}
+
+export interface MasterKtpOption {
+  NOKTP: string;
+  NAMALENGKAP: string;
+  KELAMIN?: string;
+  KDCABANG?: string;
+}
+
+function parseComboApiJson(json: any) {
+  const metadata = json?.Metadata ?? json?.metadata;
+  if (metadata?.Success === false || (metadata?.Code && metadata.Code !== "200")) {
+    throw new Error(metadata?.Message || metadata?.message || "Request gagal");
+  }
+  return json?.Data ?? json?.data ?? json;
+}
+
+export async function getFilterMasterKtp(nama?: string, cabang?: string) {
+  const params = new URLSearchParams();
+  if (nama) params.append("nama", nama);
+  if (cabang) params.append("cabang", cabang);
+
+  const res = await authFetch(
+    `${BASE_URL}Combo/GetFilterMasterKtp?${params.toString()}`
+  );
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json?.Metadata?.Message || "Gagal mengambil data KTP");
+  }
+  return parseComboApiJson(json) as MasterKtpOption[];
+}
+
+export async function getDetailMasterKtp(noktp: string) {
+  const res = await authFetch(
+    `${BASE_URL}Combo/GetDetailMasterKtp?noktp=${encodeURIComponent(noktp)}`
+  );
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json?.Metadata?.Message || "Gagal mengambil detail KTP");
+  }
+  return parseComboApiJson(json) as MasterKtpOption;
 }

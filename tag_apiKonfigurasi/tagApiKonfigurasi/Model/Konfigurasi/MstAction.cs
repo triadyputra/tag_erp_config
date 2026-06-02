@@ -5,7 +5,6 @@ namespace tagApiKonfigurasi.Model.Konfigurasi
 {
     public class MstAction
     {
-        [Key]
         public string IdAction { get; set; } = "";
 
         public string NamaAction { get; set; } = "";

@@ -13,6 +13,9 @@ using tagApiKonfigurasi.Model;
 using tagApiKonfigurasi.Services;
 using tagApiKonfigurasi.Services.Mobile;
 using tagApiKonfigurasi.Services.Menu;
+using tagApiKonfigurasi.Services.EmployeeLogin;
+using tagApiKonfigurasi.Services.MasterKtp;
+using tagApiKonfigurasi.Services.Role;
 
 
 
@@ -144,6 +147,9 @@ builder.Services.AddScoped<ApiKeyAuthorizeAsyncFilter>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 
 builder.Services.AddScoped<IMenuService, MenuService>();
+builder.Services.AddScoped<IRoleAccessMergeService, RoleAccessMergeService>();
+builder.Services.AddScoped<IMasterKtpLookupService, MasterKtpLookupService>();
+builder.Services.AddScoped<IEmployeeLoginEligibilityService, EmployeeLoginEligibilityService>();
 
 builder.Services.AddScoped<IRepoMobile, RepoMobile>();
 

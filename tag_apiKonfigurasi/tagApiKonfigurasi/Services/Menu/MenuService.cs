@@ -18,10 +18,12 @@ namespace tagApiKonfigurasi.Services.Menu
         public async Task<List<MenuViewModel>> GetMenuAsync(string? modul)
         {
             var menus = await _context.Menus
-                .Where(m => string.IsNullOrEmpty(modul) || m.IdModul == modul) // ✅ optional filter
+                .Where(m => string.IsNullOrEmpty(modul) || m.IdModul == modul)
+                .Include(m => m.Modul)
                 .Include(m => m.Controllers)
                     .ThenInclude(c => c.Actions)
-                .OrderBy(m => m.NoUrut)
+                .OrderBy(m => m.Modul != null ? m.Modul.NoUrut : int.MaxValue)
+                .ThenBy(m => m.NoUrut)
                 .ToListAsync();
 
             return menus.Select(menu => new MenuViewModel
@@ -29,6 +31,8 @@ namespace tagApiKonfigurasi.Services.Menu
                 IdMenu = menu.IdMenu,
                 NamaMenu = menu.NamaMenu,
                 NoUrut = menu.NoUrut,
+                IdModul = menu.IdModul,
+                NamaModul = menu.Modul?.NamaModul ?? menu.IdModul,
 
                 // 🔥 TAMBAHAN WAJIB
                 ParentId = menu.ParentId,

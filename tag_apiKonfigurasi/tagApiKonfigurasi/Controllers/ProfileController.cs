@@ -81,10 +81,11 @@ namespace tagApiKonfigurasi.Controllers
             }
         }
 
-        [HttpPost("change-password/{id}")]
-        public async Task<IActionResult> ChangePassword(string id, [FromBody] FormGantiPassword request)
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] FormGantiPassword request)
         {
-            var user = await userManager.FindByNameAsync(id);
+            var username = User.FindFirst(ClaimTypes.Name)?.Value ?? ""; // Username
+            var user = await userManager.FindByNameAsync(username);
             if (user == null)
             {
                 return Ok(ApiResponse<object>.Error("User tidak ditemukan", "404"));

@@ -8,6 +8,7 @@ using tagApiKonfigurasi.Helper;
 using tagApiKonfigurasi.Model;
 using Microsoft.EntityFrameworkCore;
 using tagApiKonfigurasi.Model.DTO;
+using tagApiKonfigurasi.Services.MasterKtp;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using System.Text.RegularExpressions;
 
@@ -21,11 +22,38 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> userManager;
         private readonly RoleManager<ApplicationRole> roleManager;
-        public AkunController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, RoleManager<ApplicationRole> roleManager)
+        private readonly IMasterKtpLookupService _masterKtpLookup;
+
+        public AkunController(
+            ApplicationDbContext context,
+            UserManager<ApplicationUser> userManager,
+            RoleManager<ApplicationRole> roleManager,
+            IMasterKtpLookupService masterKtpLookup)
         {
             _context = context;
             this.userManager = userManager;
             this.roleManager = roleManager;
+            _masterKtpLookup = masterKtpLookup;
+        }
+
+        private async Task<(bool Ok, string? Error, MasterKtpLookupDto? Ktp)> ResolveKtpAsync(string? noKtp)
+        {
+            if (string.IsNullOrWhiteSpace(noKtp))
+                return (false, "No KTP wajib diisi", null);
+
+            var ktp = await _masterKtpLookup.GetByNoKtpAsync(noKtp);
+            if (ktp == null)
+                return (false, "No KTP tidak ditemukan di Master KTP", null);
+
+            return (true, null, ktp);
+        }
+
+        private async Task<string?> CheckDuplicateNoKtpAsync(string noKtp, string? excludeUserId = null)
+        {
+            var exists = await userManager.Users.AnyAsync(u =>
+                u.NoKtp == noKtp &&
+                (excludeUserId == null || u.Id != excludeUserId));
+            return exists ? "No KTP sudah digunakan akun lain" : null;
         }
 
         [ApiKeyAuthorize]
@@ -45,9 +73,11 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
 
                 if (!string.IsNullOrEmpty(filter))
                 {
+                    var f = filter.ToUpper();
                     query = query.Where(x =>
-                        x.FullName != null &&
-                        x.FullName.ToUpper().Contains(filter.ToUpper()));
+                        (x.FullName != null && x.FullName.ToUpper().Contains(f)) ||
+                        (x.NoKtp != null && x.NoKtp.ToUpper().Contains(f)) ||
+                        (x.UserName != null && x.UserName.ToUpper().Contains(f)));
                 }
 
                 var count = await query.CountAsync();
@@ -72,6 +102,7 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                         UserName = user.UserName,
                         Email = user.Email,
                         FullName = user.FullName,
+                        NoKtp = user.NoKtp,
                         Photo = user.Photo,
                         PhoneNumber = user.PhoneNumber,
                         Cabang = user.Cabang,
@@ -115,6 +146,7 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                         Id = user.Id,
                         UserName = user.UserName,
                         FullName = user.FullName,
+                        NoKtp = user.NoKtp,
                         Email = user.Email,
                         Photo = user.Photo,
                         Active = user.Active,
@@ -142,11 +174,6 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                     return Ok(ApiResponse<object>.Error("Validation failed", "400", errors));
                 }
 
-                if (string.IsNullOrWhiteSpace(item.FullName))
-                {
-                    return Ok(ApiResponse<object>.Error("FullName tidak boleh kosong", "404"));
-                }
-
                 if (string.IsNullOrWhiteSpace(item.UserName))
                 {
                     return Ok(ApiResponse<object>.Error("Username tidak boleh kosong", "404"));
@@ -168,10 +195,35 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                     return Ok(ApiResponse<object>.Error("Data not found", "404"));
                 }
 
+                string fullName;
+                string? noKtp;
+
+                if (!string.IsNullOrWhiteSpace(item.NoKtp))
+                {
+                    var (ktpOk, ktpError, ktp) = await ResolveKtpAsync(item.NoKtp);
+                    if (!ktpOk)
+                        return Ok(ApiResponse<object>.Error(ktpError!, "400"));
+
+                    var dupError = await CheckDuplicateNoKtpAsync(ktp!.NOKTP, id);
+                    if (dupError != null)
+                        return Ok(ApiResponse<object>.Error(dupError, "400"));
+
+                    noKtp = ktp.NOKTP;
+                    fullName = ktp.NAMALENGKAP;
+                }
+                else
+                {
+                    noKtp = null;
+                    fullName = !string.IsNullOrWhiteSpace(item.FullName)
+                        ? item.FullName.Trim()
+                        : item.UserName!.Trim();
+                }
+
                 // Update properties
                 user.UserName = item.UserName;
                 user.Email = item.Email;
-                user.FullName = item.FullName;
+                user.NoKtp = noKtp;
+                user.FullName = fullName;
                 user.PhoneNumber = item.PhoneNumber;
                 user.Photo = item.Photo;
                 user.Active = item.Active;
@@ -207,17 +259,20 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
         {
             try
             {
-                // Validate input
-                if (string.IsNullOrWhiteSpace(item.FullName))
-                {
-                    return Ok(ApiResponse<object>.Error("Fullname name is required", "400"));
-                }
+                var (ktpOk, ktpError, ktp) = await ResolveKtpAsync(item.NoKtp);
+                if (!ktpOk)
+                    return Ok(ApiResponse<object>.Error(ktpError!, "400"));
+
+                var dupError = await CheckDuplicateNoKtpAsync(ktp!.NOKTP);
+                if (dupError != null)
+                    return Ok(ApiResponse<object>.Error(dupError, "400"));
 
                 var user = new ApplicationUser
                 {
                     UserName = item.UserName,
                     Email = item.Email,
-                    FullName = item.FullName,
+                    NoKtp = ktp.NOKTP,
+                    FullName = ktp.NAMALENGKAP,
                     PhoneNumber = item.PhoneNumber,
                     Photo = item.Photo,
                     Active = item.Active,

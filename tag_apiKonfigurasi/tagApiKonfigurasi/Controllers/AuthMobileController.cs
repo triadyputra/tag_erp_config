@@ -41,12 +41,13 @@ namespace tagApiKonfigurasi.Controllers
 
             var result = await _repo.Login(request, ip, device, modul);
 
-            if (result == null)
+            if (!result.IsSuccess)
             {
-                return BadRequest(ApiResponse<object>.Error("Username atau password salah", "404"));
+                var message = result.ErrorMessage ?? "Username atau password salah";
+                return BadRequest(ApiResponse<object>.Error(message, "404"));
             }
 
-            return Ok(ApiResponse<LoginResponseDto>.Success(result));
+            return Ok(ApiResponse<LoginResponseDto>.Success(result.Response!));
 
         }
 

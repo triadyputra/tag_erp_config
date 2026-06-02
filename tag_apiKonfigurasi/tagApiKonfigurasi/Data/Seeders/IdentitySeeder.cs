@@ -33,7 +33,11 @@ namespace tagApiKonfigurasi.Data.Seeders
                 new { IdController = "Akun", IdAction = "PostAkun" },
                 new { IdController = "Akun", IdAction = "PutAkun" },
                 new { IdController = "Akun", IdAction = "DeleteAkun" },
-                new { IdController = "AuditLogin", IdAction = "GetListAuditLogin" }
+                new { IdController = "AuditLogin", IdAction = "GetListAuditLogin" },
+                new { IdController = "HrdGroupAkun", IdAction = "GetListRole" },
+                new { IdController = "HrdGroupAkun", IdAction = "PostRole" },
+                new { IdController = "HrdGroupAkun", IdAction = "PutRole" },
+                new { IdController = "HrdGroupAkun", IdAction = "DeleteRole" }
             };
 
             var accessJson = JsonConvert.SerializeObject(accessList);
@@ -81,12 +85,19 @@ namespace tagApiKonfigurasi.Data.Seeders
         private static async Task SeedMenuSystem(ApplicationDbContext context)
         {
             // ================= MODUL =================
-            if (!await context.Set<MstModul>().AnyAsync())
+            if (!await context.Set<MstModul>().AnyAsync(x => x.IdModul == "CONFIG"))
             {
-                context.AddRange(
+                context.Add(
                     new MstModul { IdModul = "CONFIG", KodeModul = "CONFIG", NamaModul = "Konfigurasi SIstem", NoUrut = 1 }
                 );
+                await context.SaveChangesAsync();
+            }
 
+            if (!await context.Set<MstModul>().AnyAsync(x => x.IdModul == "HRD"))
+            {
+                context.Add(
+                    new MstModul { IdModul = "HRD", KodeModul = "HRD", NamaModul = "Human Resource", NoUrut = 2 }
+                );
                 await context.SaveChangesAsync();
             }
 
@@ -98,6 +109,8 @@ namespace tagApiKonfigurasi.Data.Seeders
                 new() { IdMenu = "Konfigurasi", NamaMenu = "Konfigurasi", IdModul = "CONFIG", Icon = "IconSettings", NoUrut = 2 },
 
                 new() { IdMenu = "MasterData", NamaMenu = "Master Data", IdModul = "CONFIG", Icon = "IconDatabase", NoUrut = 3 },
+
+                new() { IdMenu = "PengaturanHrd", NamaMenu = "Pengaturan", IdModul = "HRD", Icon = "IconSettings", NoUrut = 99 },
 
             };
 
@@ -123,6 +136,8 @@ namespace tagApiKonfigurasi.Data.Seeders
                 new() { IdController = "AuditLogin", NamaController = "Log Login", IdMenu = "Konfigurasi", Url = "/konfigurasi/audit-login", Icon = "IconHistory", NoUrut = 4 },
 
                 new() { IdController = "MstCabang", NamaController = "Master Cabang", IdMenu = "MasterData", Url = "/master-data/cabang", Icon = "IconHome", NoUrut = 1 },
+
+                new() { IdController = "HrdGroupAkun", NamaController = "Group Akun", IdMenu = "PengaturanHrd", Url = "/hrd/group-akun", Icon = "IconLockAccess", NoUrut = 1 },
             };
 
             foreach (var ctrl in controllers)
@@ -159,6 +174,11 @@ namespace tagApiKonfigurasi.Data.Seeders
                 new() { IdAction = "PostCabang", NamaAction = "Tambah", IdController = "MstCabang", NoUrut = 2 },
                 new() { IdAction = "PutCabang", NamaAction = "Edit", IdController = "MstCabang", NoUrut = 3 },
                 new() { IdAction = "DeleteCabang", NamaAction = "Hapus", IdController = "MstCabang", NoUrut = 4 },
+
+                new() { IdAction = "GetListRole", NamaAction = "Lihat", IdController = "HrdGroupAkun", NoUrut = 1 },
+                new() { IdAction = "PostRole", NamaAction = "Tambah", IdController = "HrdGroupAkun", NoUrut = 2 },
+                new() { IdAction = "PutRole", NamaAction = "Edit", IdController = "HrdGroupAkun", NoUrut = 3 },
+                new() { IdAction = "DeleteRole", NamaAction = "Hapus", IdController = "HrdGroupAkun", NoUrut = 4 },
             };
 
             foreach (var act in actions)

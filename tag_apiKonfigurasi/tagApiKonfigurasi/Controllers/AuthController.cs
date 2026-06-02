@@ -16,6 +16,7 @@ using tagApiKonfigurasi.Helper;
 using tagApiKonfigurasi.Model;
 using tagApiKonfigurasi.Model.DTO;
 using tagApiKonfigurasi.Model.Konfigurasi;
+using tagApiKonfigurasi.Services.EmployeeLogin;
 using tagApiKonfigurasi.Services.Menu;
 
 namespace tagApiKonfigurasi.Controllers
@@ -28,16 +29,20 @@ namespace tagApiKonfigurasi.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly IMenuService _menuService;
+        private readonly IEmployeeLoginEligibilityService _loginEligibility;
+
         public AuthController(
             UserManager<ApplicationUser> userManager,
             IConfiguration configuration,
             ApplicationDbContext context,
-            IMenuService menuService)
+            IMenuService menuService,
+            IEmployeeLoginEligibilityService loginEligibility)
         {
             this.userManager = userManager;
             _configuration = configuration;
             _context = context;
             _menuService = menuService;
+            _loginEligibility = loginEligibility;
         }
 
         // =====================================================
@@ -123,6 +128,32 @@ namespace tagApiKonfigurasi.Controllers
                 return Ok(new
                 {
                     metadata = new { code = "201", message = "User password tidak sesuai" },
+                    response = ""
+                });
+            }
+
+            var eligibility = await _loginEligibility.ValidateAsync(
+                user.NoKtp,
+                LoginEligibilityMode.WebStrict);
+
+            if (!eligibility.IsEligible)
+            {
+                await SaveAuditLogin(
+                    user.Id,
+                    user.UserName,
+                    ip,
+                    device,
+                    false,
+                    eligibility.Message,
+                    city,
+                    country,
+                    modul);
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    metadata = new { code = "201", message = eligibility.Message },
                     response = ""
                 });
             }

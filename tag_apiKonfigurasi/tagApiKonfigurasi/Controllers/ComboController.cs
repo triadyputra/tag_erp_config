@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using tagApiKonfigurasi.Data;
 using tagApiKonfigurasi.Model;
+using tagApiKonfigurasi.Model.DTO;
+using tagApiKonfigurasi.Services.MasterKtp;
 
 
 
@@ -20,12 +22,18 @@ namespace tagApiKonfigurasi.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> userManager;
         private readonly RoleManager<ApplicationRole> roleManager;
+        private readonly IMasterKtpLookupService _masterKtpLookup;
 
-        public ComboController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, RoleManager<ApplicationRole> roleManager)
+        public ComboController(
+            ApplicationDbContext context,
+            UserManager<ApplicationUser> userManager,
+            RoleManager<ApplicationRole> roleManager,
+            IMasterKtpLookupService masterKtpLookup)
         {
             _context = context;
             this.userManager = userManager;
             this.roleManager = roleManager;
+            _masterKtpLookup = masterKtpLookup;
         }
 
         [HttpGet]
@@ -65,6 +73,40 @@ namespace tagApiKonfigurasi.Controllers
         //    return Ok(cabang);
         //}
 
+        [HttpGet("GetFilterMasterKtp")]
+        public async Task<IActionResult> GetFilterMasterKtp(
+            [FromQuery] string? nama,
+            [FromQuery] string? cabang)
+        {
+            try
+            {
+                var data = await _masterKtpLookup.SearchAsync(nama, cabang);
+                return Ok(ApiResponse<List<MasterKtpLookupDto>>.Success(data));
+            }
+            catch (Exception ex)
+            {
+                return Ok(ApiResponse<object>.Error(ex.Message, "500"));
+            }
+        }
 
+        [HttpGet("GetDetailMasterKtp")]
+        public async Task<IActionResult> GetDetailMasterKtp([FromQuery] string noktp)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(noktp))
+                    return Ok(ApiResponse<object>.Error("No KTP wajib diisi", "400"));
+
+                var data = await _masterKtpLookup.GetByNoKtpAsync(noktp);
+                if (data == null)
+                    return Ok(ApiResponse<object>.Error("Data KTP tidak ditemukan", "404"));
+
+                return Ok(ApiResponse<MasterKtpLookupDto>.Success(data));
+            }
+            catch (Exception ex)
+            {
+                return Ok(ApiResponse<object>.Error(ex.Message, "500"));
+            }
+        }
     }
 }

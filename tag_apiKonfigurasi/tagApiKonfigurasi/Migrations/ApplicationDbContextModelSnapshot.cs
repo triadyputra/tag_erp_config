@@ -200,6 +200,10 @@ namespace tagApiKonfigurasi.Migrations
                     b.Property<DateTimeOffset?>("LockoutEnd")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("NoKtp")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
@@ -314,12 +318,11 @@ namespace tagApiKonfigurasi.Migrations
 
             modelBuilder.Entity("tagApiKonfigurasi.Model.Konfigurasi.MstAction", b =>
                 {
-                    b.Property<string>("IdAction")
+                    b.Property<string>("IdController")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("IdController")
-                        .IsRequired()
+                    b.Property<string>("IdAction")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
@@ -331,9 +334,7 @@ namespace tagApiKonfigurasi.Migrations
                     b.Property<int>("NoUrut")
                         .HasColumnType("int");
 
-                    b.HasKey("IdAction");
-
-                    b.HasIndex("IdController");
+                    b.HasKey("IdController", "IdAction");
 
                     b.ToTable("Actions");
                 });

@@ -10,6 +10,7 @@ using tagApiKonfigurasi.Model;
 using tagApiKonfigurasi.Model.DTO;
 using tagApiKonfigurasi.Model.DTO.Mobile;
 using tagApiKonfigurasi.Model.Konfigurasi;
+using tagApiKonfigurasi.Services.EmployeeLogin;
 
 namespace tagApiKonfigurasi.Services.Mobile
 {
@@ -18,18 +19,21 @@ namespace tagApiKonfigurasi.Services.Mobile
         private readonly DapperSistagHrdContext _context;
         private readonly ApplicationDbContext _db;
         private readonly IConfiguration _config;
+        private readonly IEmployeeLoginEligibilityService _loginEligibility;
 
         public RepoMobile(
             DapperSistagHrdContext context,
             ApplicationDbContext db,
-            IConfiguration config)
+            IConfiguration config,
+            IEmployeeLoginEligibilityService loginEligibility)
         {
             _context = context;
             _db = db;
             _config = config;
+            _loginEligibility = loginEligibility;
         }
 
-        public async Task<LoginResponseDto?> Login(LoginRequestDto request, string ip, string device, string modul)
+        public async Task<MobileLoginResult> Login(LoginRequestDto request, string ip, string device, string modul)
         {
             //var sql = @"
             //SELECT 
@@ -85,14 +89,32 @@ namespace tagApiKonfigurasi.Services.Mobile
             });
 
             if (userDb == null)
-                return null;
+                return MobileLoginResult.CredentialFailure();
 
             //================= VALIDASI PASSWORD =================
             var currentPassword = (userDb.Password ?? userDb.NIKSistag)?.ToString()?.Trim();
 
             if (string.IsNullOrEmpty(currentPassword) ||
                 !string.Equals(currentPassword, request.Password?.Trim()))
-                return null;
+                return MobileLoginResult.CredentialFailure();
+
+            var eligibility = await _loginEligibility.ValidateAsync(
+                userDb.NoKtp,
+                LoginEligibilityMode.MobileGrace);
+
+            if (!eligibility.IsEligible)
+            {
+                await SaveAuditLogin(
+                    userDb.NoKtp,
+                    userDb.Nama,
+                    ip,
+                    device,
+                    false,
+                    eligibility.Message,
+                    modul);
+
+                return MobileLoginResult.EligibilityFailure(eligibility.Message!);
+            }
 
             // =========================
             // SINGLE SESSION (per user + modul)
@@ -155,13 +177,13 @@ namespace tagApiKonfigurasi.Services.Mobile
                 Photo = photoBase64
             };
 
-            return new LoginResponseDto
+            return MobileLoginResult.Success(new LoginResponseDto
             {
                 Token = accessToken,
                 RefreshToken = refreshToken.Token,
                 ExpiredAt = DateTime.UtcNow.AddMinutes(10),
                 User = user
-            };
+            });
         }
 
         public async Task<LoginResponseDto?> Refresh(string refreshToken, string modul)

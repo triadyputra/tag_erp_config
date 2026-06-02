@@ -8,6 +8,10 @@ namespace tagApiKonfigurasi.Model
         [Required]
         [StringLength(256, ErrorMessage = "Panjang karakter {0} tidak boleh lebih dari {2}")]
         public string FullName { get; set; } = string.Empty;
+
+        [StringLength(50)]
+        public string? NoKtp { get; set; }
+
         public string? Photo { set; get; }
         public bool Active { get; set; }
         public string? Cabang { set; get; }
