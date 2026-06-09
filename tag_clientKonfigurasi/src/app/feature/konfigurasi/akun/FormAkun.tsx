@@ -22,6 +22,7 @@ import { AkunList } from "@/app/(DashboardLayout)/types/feature/konfigurasi/akun
 import {
   useComboCabang,
   useComboGroup,
+  useComboModul,
   getFilterMasterKtp,
   getDetailMasterKtp,
   MasterKtpOption,
@@ -42,6 +43,8 @@ const emptyValues: AkunList = {
   UserName: "",
   Email: "",
   NoKtp: "",
+  NikSistag: "",
+  IdModul: "",
   FullName: "",
   Photo: "",
   PhoneNumber: "",
@@ -59,6 +62,8 @@ function normalizeAkunForm(source: Partial<AkunList>): AkunList {
     UserName: source.UserName ?? "",
     Email: source.Email ?? "",
     NoKtp: source.NoKtp ?? "",
+    NikSistag: source.NikSistag ?? "",
+    IdModul: source.IdModul ?? "",
     FullName: source.FullName ?? "",
     Photo: source.Photo ?? "",
     PhoneNumber: source.PhoneNumber ?? "",
@@ -76,6 +81,7 @@ const FormAkun: React.FC<FormAkunProps> = ({
   const { showSnackbar } = useSnackbar();
   const { groups, loading } = useComboGroup();
   const { cabang: cabangOptions, loading: loadingCabang } = useComboCabang();
+  const { moduls, loading: loadingModul } = useComboModul();
 
   const [values, setValues] = useState<AkunList>(emptyValues);
   const [submitting, setSubmitting] = useState(false);
@@ -181,10 +187,12 @@ const FormAkun: React.FC<FormAkunProps> = ({
 
       const detail = await getDetailMasterKtp(item.NOKTP);
       const kdCabang = (detail.KDCABANG ?? item.KDCABANG ?? "").trim();
+      const nikSistag = (detail.NIKSISTAG ?? "").trim();
       setValues((v) => ({
         ...v,
         NoKtp: detail.NOKTP,
         FullName: detail.NAMALENGKAP,
+        NikSistag: nikSistag,
         ...(kdCabang ? { Cabang: kdCabang } : {}),
       }));
     } catch (err: unknown) {
@@ -199,7 +207,7 @@ const FormAkun: React.FC<FormAkunProps> = ({
     setSelected(null);
     setKeyword(values.FullName || "");
     setList([]);
-    setValues((v) => ({ ...v, NoKtp: "" }));
+    setValues((v) => ({ ...v, NoKtp: "", NikSistag: "" }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -212,6 +220,11 @@ const FormAkun: React.FC<FormAkunProps> = ({
 
     if (!values.UserName?.trim()) {
       showSnackbar("Username wajib diisi", "warning");
+      return;
+    }
+
+    if (!values.NikSistag?.trim()) {
+      showSnackbar("NIK Sistag wajib diisi", "warning");
       return;
     }
 
@@ -445,6 +458,25 @@ const FormAkun: React.FC<FormAkunProps> = ({
             </Grid>
 
             <Grid size={{ xs: 12 }}>
+              <FormLabel>NIK Sistag</FormLabel>
+              <TextField
+                fullWidth
+                size="small"
+                required
+                value={values.NikSistag ?? ""}
+                disabled={fullNameFromMaster}
+                onChange={(e) =>
+                  setValues({ ...values, NikSistag: e.target.value })
+                }
+                placeholder={
+                  fullNameFromMaster
+                    ? "Dari Master KTP"
+                    : "Isi NIK Sistag"
+                }
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12 }}>
               <FormLabel>Username</FormLabel>
               <TextField
                 fullWidth
@@ -454,6 +486,32 @@ const FormAkun: React.FC<FormAkunProps> = ({
                   setValues({ ...values, UserName: e.target.value })
                 }
               />
+            </Grid>
+
+            <Grid size={{ xs: 12 }}>
+              <FormLabel>Modul</FormLabel>
+              <Select
+                fullWidth
+                size="small"
+                displayEmpty
+                value={values.IdModul ?? ""}
+                disabled={loadingModul}
+                onChange={(e) =>
+                  setValues({
+                    ...values,
+                    IdModul: e.target.value,
+                  })
+                }
+              >
+                <MenuItem value="">
+                  <em>— Tidak ada —</em>
+                </MenuItem>
+                {moduls.map((modul) => (
+                  <MenuItem key={modul.value} value={modul.value}>
+                    {modul.title} ({modul.value})
+                  </MenuItem>
+                ))}
+              </Select>
             </Grid>
 
             <Grid size={{ xs: 12 }}>

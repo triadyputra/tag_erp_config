@@ -68,14 +68,41 @@ namespace tagApiKonfigurasi.Services.EmployeeLogin
 
         private async Task<EmployeeLoginEligibilityRow?> LoadRowAsync(string noktp)
         {
+            //const string sql = @"
+            //    SELECT
+            //        ktp.NOKTP AS Noktp,
+            //        CASE
+            //            WHEN pk.TGLRESIGN IS NOT NULL THEN pk.TGLRESIGN
+            //            WHEN hk.PAKHIRFREE IS NOT NULL THEN hk.PAKHIRFREE
+            //            ELSE NULL
+            //        END AS ResignDate,
+            //        CAST(NULL AS DATETIME) AS ResignDate,
+            //        CASE WHEN tetap.NOKTP IS NOT NULL THEN 1 ELSE 0 END AS IsPermanent,
+            //        kontrak.LatestPakhir,
+            //        ISNULL(kontrak.HasActiveContractToday, 0) AS HasActiveContractToday
+            //    FROM HRDTAG.dbo.MST_KTP ktp
+            //    LEFT JOIN SISTAGHRD.dbo.TRX_KARYAWANPK pk
+            //        ON ktp.NOKTP COLLATE DATABASE_DEFAULT = pk.NOKTP COLLATE DATABASE_DEFAULT
+            //    LEFT JOIN SISTAGHRD.dbo.TRX_KARYAWANHK hk
+            //        ON ktp.NOKTP COLLATE DATABASE_DEFAULT = hk.NIKKTP COLLATE DATABASE_DEFAULT
+            //    LEFT JOIN HRDTAG.dbo.MST_KARYAWANTETAP tetap
+            //        ON ktp.NOKTP COLLATE DATABASE_DEFAULT = tetap.NOKTP COLLATE DATABASE_DEFAULT
+            //    OUTER APPLY (
+            //        SELECT
+            //            MAX(k.PAKHIR) AS LatestPakhir,
+            //            MAX(CASE
+            //                WHEN CAST(GETDATE() AS date) >= CAST(k.PAWAL AS date)
+            //                 AND CAST(GETDATE() AS date) <= CAST(k.PAKHIR AS date)
+            //                THEN 1 ELSE 0 END) AS HasActiveContractToday
+            //        FROM SISTAGHRD.dbo.TRX_KONTRAKKARYAWAN k
+            //        WHERE ktp.NOKTP COLLATE DATABASE_DEFAULT = k.NOKTP COLLATE DATABASE_DEFAULT
+            //    ) kontrak
+            //    WHERE ktp.NOKTP = @noktp";
+
             const string sql = @"
                 SELECT
                     ktp.NOKTP AS Noktp,
-                    CASE
-                        WHEN pk.TGLRESIGN IS NOT NULL THEN pk.TGLRESIGN
-                        WHEN hk.PAKHIRFREE IS NOT NULL THEN hk.PAKHIRFREE
-                        ELSE NULL
-                    END AS ResignDate,
+                    CAST(NULL AS DATETIME) AS ResignDate,
                     CASE WHEN tetap.NOKTP IS NOT NULL THEN 1 ELSE 0 END AS IsPermanent,
                     kontrak.LatestPakhir,
                     ISNULL(kontrak.HasActiveContractToday, 0) AS HasActiveContractToday

@@ -159,11 +159,9 @@ namespace tagApiKonfigurasi.Services.Mobile
                 refreshToken: refreshToken.Token
             );
 
-            string? photoBase64 = null;
-            if (userDb.Photo != null && userDb.Photo.Length > 0)
-            {
-                photoBase64 = $"data:image/jpeg;base64,{Convert.ToBase64String(userDb.Photo)}";
-            }
+            string? photoBase64 = userDb.Photo is { Length: > 0 }
+                ? PhotoCompressionHelper.ToMobileBase64(userDb.Photo)
+                : null;
 
             var user = new UserInfoDto
             {

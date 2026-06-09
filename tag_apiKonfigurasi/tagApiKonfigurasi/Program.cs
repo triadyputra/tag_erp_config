@@ -156,6 +156,9 @@ builder.Services.AddScoped<IRepoMobile, RepoMobile>();
 
 var app = builder.Build();
 
+// Menu/aksi baru (mis. HrdUserAkun) — jalan di semua environment
+await IdentitySeeder.EnsureIncrementalSeedAsync(app.Services);
+await IdentitySeeder.MergeHrdUserAkunAccessForHrdRolesAsync(app.Services);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

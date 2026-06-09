@@ -6,8 +6,27 @@ using tagApiKonfigurasi.Model.Konfigurasi;
 
 namespace tagApiKonfigurasi.Data.Seeders
 {
+    public class AccesSeedItem
+    {
+        public string IdController { get; set; } = "";
+        public string IdAction { get; set; } = "";
+    }
+
     public static class IdentitySeeder
     {
+        /// <summary>
+        /// Menambah menu/aksi baru ke DB yang sudah ada + merge akses role (jalan setiap startup).
+        /// </summary>
+        public static async Task EnsureIncrementalSeedAsync(IServiceProvider sp)
+        {
+            using var scope = sp.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+
+            await EnsureHrdUserAkunMenuAsync(context);
+            await MergeSuperAdminAccessAsync(roleManager, GetDefaultAccessList());
+        }
+
         public static async Task SeedAsync(IServiceProvider sp)
         {
             using var scope = sp.CreateScope();
@@ -21,25 +40,7 @@ namespace tagApiKonfigurasi.Data.Seeders
             const string ADMIN_USERNAME = "triady";
             const string CABANG_ID = "TAG01";
 
-            var accessList = new[]
-            {
-                new { IdController = "Beranda", IdAction = "Read" },
-                new { IdController = "Beranda", IdAction = "ProgresPemutahiran" },
-                new { IdController = "Role", IdAction = "GetListRole" },
-                new { IdController = "Role", IdAction = "PostRole" },
-                new { IdController = "Role", IdAction = "PutRole" },
-                new { IdController = "Role", IdAction = "DeleteRole" },
-                new { IdController = "Akun", IdAction = "GetListAkun" },
-                new { IdController = "Akun", IdAction = "PostAkun" },
-                new { IdController = "Akun", IdAction = "PutAkun" },
-                new { IdController = "Akun", IdAction = "DeleteAkun" },
-                new { IdController = "AuditLogin", IdAction = "GetListAuditLogin" },
-                new { IdController = "HrdGroupAkun", IdAction = "GetListRole" },
-                new { IdController = "HrdGroupAkun", IdAction = "PostRole" },
-                new { IdController = "HrdGroupAkun", IdAction = "PutRole" },
-                new { IdController = "HrdGroupAkun", IdAction = "DeleteRole" }
-            };
-
+            var accessList = GetDefaultAccessList();
             var accessJson = JsonConvert.SerializeObject(accessList);
 
             // ================= ROLE =================
@@ -49,10 +50,23 @@ namespace tagApiKonfigurasi.Data.Seeders
                 role = new ApplicationRole
                 {
                     Name = ROLE_NAME,
-                    Access = accessJson
+                    Access = accessJson,
+                    IdModul = "CONFIG",
                 };
 
                 await roleManager.CreateAsync(role);
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(role.IdModul))
+                    role.IdModul = "CONFIG";
+
+                var merged = MergeAccessJson(role.Access, accessList);
+                if (merged != role.Access)
+                {
+                    role.Access = merged;
+                    await roleManager.UpdateAsync(role);
+                }
             }
 
             // ================= USER =================
@@ -65,11 +79,17 @@ namespace tagApiKonfigurasi.Data.Seeders
                     Email = ADMIN_EMAIL,
                     EmailConfirmed = true,
                     FullName = "Deri Triadi Putra",
+                    NikSistag = ADMIN_USERNAME,
                     Active = true,
                     Cabang = CABANG_ID
                 };
 
                 await userManager.CreateAsync(user, "P@ssw0rd");
+            }
+            else if (string.IsNullOrWhiteSpace(user.NikSistag))
+            {
+                user.NikSistag = ADMIN_USERNAME;
+                await userManager.UpdateAsync(user);
             }
 
             if (!await userManager.IsInRoleAsync(user, ROLE_NAME))
@@ -138,6 +158,8 @@ namespace tagApiKonfigurasi.Data.Seeders
                 new() { IdController = "MstCabang", NamaController = "Master Cabang", IdMenu = "MasterData", Url = "/master-data/cabang", Icon = "IconHome", NoUrut = 1 },
 
                 new() { IdController = "HrdGroupAkun", NamaController = "Group Akun", IdMenu = "PengaturanHrd", Url = "/hrd/group-akun", Icon = "IconLockAccess", NoUrut = 1 },
+
+                new() { IdController = "HrdUserAkun", NamaController = "User Akun", IdMenu = "PengaturanHrd", Url = "/hrd/user-akun", Icon = "IconUsers", NoUrut = 2 },
             };
 
             foreach (var ctrl in controllers)
@@ -179,6 +201,11 @@ namespace tagApiKonfigurasi.Data.Seeders
                 new() { IdAction = "PostRole", NamaAction = "Tambah", IdController = "HrdGroupAkun", NoUrut = 2 },
                 new() { IdAction = "PutRole", NamaAction = "Edit", IdController = "HrdGroupAkun", NoUrut = 3 },
                 new() { IdAction = "DeleteRole", NamaAction = "Hapus", IdController = "HrdGroupAkun", NoUrut = 4 },
+
+                new() { IdAction = "GetListAkun", NamaAction = "Lihat", IdController = "HrdUserAkun", NoUrut = 1 },
+                new() { IdAction = "PostAkun", NamaAction = "Tambah", IdController = "HrdUserAkun", NoUrut = 2 },
+                new() { IdAction = "PutAkun", NamaAction = "Edit", IdController = "HrdUserAkun", NoUrut = 3 },
+                new() { IdAction = "DeleteAkun", NamaAction = "Hapus", IdController = "HrdUserAkun", NoUrut = 4 },
             };
 
             foreach (var act in actions)
@@ -192,6 +219,192 @@ namespace tagApiKonfigurasi.Data.Seeders
             }
 
             await context.SaveChangesAsync();
+
+            await EnsureHrdUserAkunMenuAsync(context);
+        }
+
+        private static AccesSeedItem[] GetDefaultAccessList() =>
+        [
+            new AccesSeedItem { IdController = "Beranda", IdAction = "Read" },
+            new AccesSeedItem { IdController = "Beranda", IdAction = "ProgresPemutahiran" },
+            new AccesSeedItem { IdController = "Role", IdAction = "GetListRole" },
+            new AccesSeedItem { IdController = "Role", IdAction = "PostRole" },
+            new AccesSeedItem { IdController = "Role", IdAction = "PutRole" },
+            new AccesSeedItem { IdController = "Role", IdAction = "DeleteRole" },
+            new AccesSeedItem { IdController = "Akun", IdAction = "GetListAkun" },
+            new AccesSeedItem { IdController = "Akun", IdAction = "PostAkun" },
+            new AccesSeedItem { IdController = "Akun", IdAction = "PutAkun" },
+            new AccesSeedItem { IdController = "Akun", IdAction = "DeleteAkun" },
+            new AccesSeedItem { IdController = "AuditLogin", IdAction = "GetListAuditLogin" },
+            new AccesSeedItem { IdController = "HrdGroupAkun", IdAction = "GetListRole" },
+            new AccesSeedItem { IdController = "HrdGroupAkun", IdAction = "PostRole" },
+            new AccesSeedItem { IdController = "HrdGroupAkun", IdAction = "PutRole" },
+            new AccesSeedItem { IdController = "HrdGroupAkun", IdAction = "DeleteRole" },
+            new AccesSeedItem { IdController = "HrdUserAkun", IdAction = "GetListAkun" },
+            new AccesSeedItem { IdController = "HrdUserAkun", IdAction = "PostAkun" },
+            new AccesSeedItem { IdController = "HrdUserAkun", IdAction = "PutAkun" },
+            new AccesSeedItem { IdController = "HrdUserAkun", IdAction = "DeleteAkun" },
+        ];
+
+        private static AccesSeedItem[] GetHrdUserAkunAccessList() =>
+        [
+            new AccesSeedItem { IdController = "HrdUserAkun", IdAction = "GetListAkun" },
+            new AccesSeedItem { IdController = "HrdUserAkun", IdAction = "PostAkun" },
+            new AccesSeedItem { IdController = "HrdUserAkun", IdAction = "PutAkun" },
+            new AccesSeedItem { IdController = "HrdUserAkun", IdAction = "DeleteAkun" },
+        ];
+
+        private static async Task EnsureHrdUserAkunMenuAsync(ApplicationDbContext context)
+        {
+            if (!await context.Set<MstModul>().AnyAsync(x => x.IdModul == "HRD"))
+            {
+                context.Add(
+                    new MstModul { IdModul = "HRD", KodeModul = "HRD", NamaModul = "Human Resource", NoUrut = 2 }
+                );
+                await context.SaveChangesAsync();
+            }
+
+            if (!await context.Menus.AnyAsync(x => x.IdMenu == "PengaturanHrd"))
+            {
+                context.Menus.Add(new MstMenu
+                {
+                    IdMenu = "PengaturanHrd",
+                    NamaMenu = "Pengaturan",
+                    IdModul = "HRD",
+                    Icon = "IconSettings",
+                    NoUrut = 99,
+                });
+                await context.SaveChangesAsync();
+            }
+
+            if (!await context.Controllers.AnyAsync(x => x.IdController == "HrdUserAkun"))
+            {
+                context.Controllers.Add(new MstController
+                {
+                    IdController = "HrdUserAkun",
+                    NamaController = "User Akun",
+                    IdMenu = "PengaturanHrd",
+                    Url = "/hrd/user-akun",
+                    Icon = "IconUsers",
+                    NoUrut = 2,
+                });
+                await context.SaveChangesAsync();
+            }
+            else
+            {
+                var hrdUserAkun = await context.Controllers
+                    .FirstAsync(x => x.IdController == "HrdUserAkun");
+                if (hrdUserAkun.Url != "/hrd/user-akun")
+                {
+                    hrdUserAkun.Url = "/hrd/user-akun";
+                    hrdUserAkun.IdMenu = "PengaturanHrd";
+                    hrdUserAkun.NamaController = "User Akun";
+                    await context.SaveChangesAsync();
+                }
+            }
+
+            var hrdUserAkunActions = new List<MstAction>
+            {
+                new() { IdAction = "GetListAkun", NamaAction = "Lihat", IdController = "HrdUserAkun", NoUrut = 1 },
+                new() { IdAction = "PostAkun", NamaAction = "Tambah", IdController = "HrdUserAkun", NoUrut = 2 },
+                new() { IdAction = "PutAkun", NamaAction = "Edit", IdController = "HrdUserAkun", NoUrut = 3 },
+                new() { IdAction = "DeleteAkun", NamaAction = "Hapus", IdController = "HrdUserAkun", NoUrut = 4 },
+            };
+
+            foreach (var act in hrdUserAkunActions)
+            {
+                if (!await context.Actions.AnyAsync(x =>
+                    x.IdAction == act.IdAction && x.IdController == act.IdController))
+                {
+                    context.Actions.Add(act);
+                }
+            }
+
+            await context.SaveChangesAsync();
+        }
+
+        private static async Task MergeSuperAdminAccessAsync(
+            RoleManager<ApplicationRole> roleManager,
+            AccesSeedItem[] requiredAccess)
+        {
+            const string roleName = "SuperAdmin";
+            var role = await roleManager.FindByNameAsync(roleName);
+            if (role == null) return;
+
+            var merged = MergeAccessJson(role.Access, requiredAccess);
+            if (merged == role.Access) return;
+
+            role.Access = merged;
+            await roleManager.UpdateAsync(role);
+        }
+
+        /// <summary>
+        /// Role yang sudah punya HrdGroupAkun otomatis dapat HrdUserAkun (satu paket Pengaturan HRD).
+        /// </summary>
+        public static async Task MergeHrdUserAkunAccessForHrdRolesAsync(IServiceProvider sp)
+        {
+            using var scope = sp.CreateScope();
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+            var hrdUserAkunAccess = GetHrdUserAkunAccessList();
+
+            foreach (var role in roleManager.Roles.ToList())
+            {
+                if (string.IsNullOrEmpty(role.Access)) continue;
+
+                List<AccesSeedItem>? current;
+                try
+                {
+                    current = JsonConvert.DeserializeObject<List<AccesSeedItem>>(role.Access);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (current == null) continue;
+
+                var hasHrdGroup = current.Any(a =>
+                    string.Equals(a.IdController, "HrdGroupAkun", StringComparison.OrdinalIgnoreCase));
+
+                if (!hasHrdGroup) continue;
+
+                var merged = MergeAccessJson(role.Access, hrdUserAkunAccess);
+                if (merged == role.Access) continue;
+
+                role.Access = merged;
+                await roleManager.UpdateAsync(role);
+            }
+        }
+
+        private static string MergeAccessJson(string? existingJson, AccesSeedItem[] toAdd)
+        {
+            var list = new List<AccesSeedItem>();
+
+            if (!string.IsNullOrWhiteSpace(existingJson))
+            {
+                try
+                {
+                    var parsed = JsonConvert.DeserializeObject<List<AccesSeedItem>>(existingJson);
+                    if (parsed != null)
+                        list.AddRange(parsed);
+                }
+                catch
+                {
+                    // ignore corrupt json, rebuild from additions only below
+                }
+            }
+
+            foreach (var item in toAdd)
+            {
+                if (!list.Any(x =>
+                    string.Equals(x.IdController, item.IdController, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(x.IdAction, item.IdAction, StringComparison.OrdinalIgnoreCase)))
+                {
+                    list.Add(item);
+                }
+            }
+
+            return JsonConvert.SerializeObject(list);
         }
     }
 }

@@ -56,11 +56,52 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
             return exists ? "No KTP sudah digunakan akun lain" : null;
         }
 
+        private static (bool Ok, string? Error) ValidateNikSistag(string? nikSistag)
+        {
+            if (string.IsNullOrWhiteSpace(nikSistag))
+                return (false, "NIK Sistag wajib diisi");
+
+            return (true, null);
+        }
+
+        private async Task<(bool Ok, string? Error)> ValidateIdModulAsync(string? idModul)
+        {
+            if (string.IsNullOrWhiteSpace(idModul))
+                return (true, null);
+
+            var exists = await _context.Moduls.AnyAsync(m => m.IdModul == idModul);
+            if (!exists)
+                return (false, "Modul tidak ditemukan");
+
+            return (true, null);
+        }
+
+        private async Task<string?> CheckDuplicateNikSistagAsync(string nikSistag, string? excludeUserId = null)
+        {
+            var exists = await userManager.Users.AnyAsync(u =>
+                u.NikSistag == nikSistag &&
+                (excludeUserId == null || u.Id != excludeUserId));
+            return exists ? "NIK Sistag sudah digunakan akun lain" : null;
+        }
+
+        private string? GetRequestModul() =>
+            HttpContext.Request.Headers["X-Modul"].FirstOrDefault();
+
+        private static bool ShouldFilterHrdModul(string? idModul, string? requestModul) =>
+            string.Equals(idModul, "HRD", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(requestModul, "HRD", StringComparison.OrdinalIgnoreCase);
+
+        private bool IsHrdRequest() => ShouldFilterHrdModul(null, GetRequestModul());
+
+        private static bool HasGroupAssignment(string[]? group) =>
+            group != null && group.Length > 0;
+
         [ApiKeyAuthorize]
         [HttpGet]
         [Route("GetListAkun")]
         public async Task<ActionResult<PaginatedResponse<ViewAkunDto>>> GetListAkun(
         [FromQuery] string? filter = null,
+        [FromQuery] string? idModul = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
         {
@@ -69,7 +110,12 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                 if (page < 1) page = 1;
                 if (pageSize < 1 || pageSize > 100) pageSize = 10;
 
-                var query = this.userManager.Users.AsQueryable();
+                var query = this.userManager.Users
+                    .Include(x => x.Modul)
+                    .AsQueryable();
+
+                if (ShouldFilterHrdModul(idModul, GetRequestModul()))
+                    query = query.Where(x => x.IdModul == "HRD");
 
                 if (!string.IsNullOrEmpty(filter))
                 {
@@ -77,6 +123,7 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                     query = query.Where(x =>
                         (x.FullName != null && x.FullName.ToUpper().Contains(f)) ||
                         (x.NoKtp != null && x.NoKtp.ToUpper().Contains(f)) ||
+                        (x.NikSistag != null && x.NikSistag.ToUpper().Contains(f)) ||
                         (x.UserName != null && x.UserName.ToUpper().Contains(f)));
                 }
 
@@ -103,6 +150,9 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                         Email = user.Email,
                         FullName = user.FullName,
                         NoKtp = user.NoKtp,
+                        NikSistag = user.NikSistag,
+                        IdModul = user.IdModul,
+                        NamaModul = user.Modul?.NamaModul ?? user.IdModul,
                         Photo = user.Photo,
                         PhoneNumber = user.PhoneNumber,
                         Cabang = user.Cabang,
@@ -147,6 +197,8 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                         UserName = user.UserName,
                         FullName = user.FullName,
                         NoKtp = user.NoKtp,
+                        NikSistag = user.NikSistag,
+                        IdModul = user.IdModul,
                         Email = user.Email,
                         Photo = user.Photo,
                         Active = user.Active,
@@ -179,10 +231,23 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                     return Ok(ApiResponse<object>.Error("Username tidak boleh kosong", "404"));
                 }
 
-                if (item.Group == null || item.Group.Length == 0)
+                if (!IsHrdRequest() && !HasGroupAssignment(item.Group))
                 {
                     return Ok(ApiResponse<object>.Error("Group tidak boleh kosong", "404"));
                 }
+
+                var (nikOk, nikError) = ValidateNikSistag(item.NikSistag);
+                if (!nikOk)
+                    return Ok(ApiResponse<object>.Error(nikError!, "400"));
+
+                var nikSistag = item.NikSistag!.Trim();
+
+                if (IsHrdRequest())
+                    item.IdModul = "HRD";
+
+                var modulValidation = await ValidateIdModulAsync(item.IdModul);
+                if (!modulValidation.Ok)
+                    return Ok(ApiResponse<object>.Error(modulValidation.Error!, "400"));
 
                 if (id != item.Id)
                 {
@@ -194,6 +259,10 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                 {
                     return Ok(ApiResponse<object>.Error("Data not found", "404"));
                 }
+
+                var dupNikError = await CheckDuplicateNikSistagAsync(nikSistag, id);
+                if (dupNikError != null)
+                    return Ok(ApiResponse<object>.Error(dupNikError, "400"));
 
                 string fullName;
                 string? noKtp;
@@ -224,6 +293,8 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                 user.Email = item.Email;
                 user.NoKtp = noKtp;
                 user.FullName = fullName;
+                user.NikSistag = nikSistag;
+                user.IdModul = string.IsNullOrWhiteSpace(item.IdModul) ? null : item.IdModul.Trim();
                 user.PhoneNumber = item.PhoneNumber;
                 user.Photo = item.Photo;
                 user.Active = item.Active;
@@ -232,11 +303,14 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                 var result = await userManager.UpdateAsync(user);
                 if (result.Succeeded)
                 {
-                    var existingRoles = await userManager.GetRolesAsync(user);
-                    var resultRole = await userManager.RemoveFromRolesAsync(user, existingRoles);
-                    if (resultRole.Succeeded)
+                    if (HasGroupAssignment(item.Group))
                     {
-                        var saveRoleUser = await userManager.AddToRolesAsync(user, item.Group);
+                        var existingRoles = await userManager.GetRolesAsync(user);
+                        var resultRole = await userManager.RemoveFromRolesAsync(user, existingRoles);
+                        if (resultRole.Succeeded)
+                        {
+                            await userManager.AddToRolesAsync(user, item.Group);
+                        }
                     }
                     return Ok(ApiResponse<object>.SuccessNoData());
                 }
@@ -259,6 +333,28 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
         {
             try
             {
+                var (nikOk, nikError) = ValidateNikSistag(item.NikSistag);
+                if (!nikOk)
+                    return Ok(ApiResponse<object>.Error(nikError!, "400"));
+
+                var nikSistag = item.NikSistag!.Trim();
+
+                if (IsHrdRequest())
+                    item.IdModul = "HRD";
+
+                if (!IsHrdRequest() && !HasGroupAssignment(item.Group))
+                {
+                    return Ok(ApiResponse<object>.Error("Group tidak boleh kosong", "404"));
+                }
+
+                var modulValidation = await ValidateIdModulAsync(item.IdModul);
+                if (!modulValidation.Ok)
+                    return Ok(ApiResponse<object>.Error(modulValidation.Error!, "400"));
+
+                var dupNikError = await CheckDuplicateNikSistagAsync(nikSistag);
+                if (dupNikError != null)
+                    return Ok(ApiResponse<object>.Error(dupNikError, "400"));
+
                 var (ktpOk, ktpError, ktp) = await ResolveKtpAsync(item.NoKtp);
                 if (!ktpOk)
                     return Ok(ApiResponse<object>.Error(ktpError!, "400"));
@@ -273,6 +369,8 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                     Email = item.Email,
                     NoKtp = ktp.NOKTP,
                     FullName = ktp.NAMALENGKAP,
+                    NikSistag = nikSistag,
+                    IdModul = string.IsNullOrWhiteSpace(item.IdModul) ? null : item.IdModul.Trim(),
                     PhoneNumber = item.PhoneNumber,
                     Photo = item.Photo,
                     Active = item.Active,
@@ -284,7 +382,10 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
 
                 if (result.Succeeded)
                 {
-                    var resultRole = await userManager.AddToRolesAsync(user, item.Group);
+                    if (HasGroupAssignment(item.Group))
+                    {
+                        await userManager.AddToRolesAsync(user, item.Group);
+                    }
                     return Ok(ApiResponse<object>.SuccessNoData());
                 }
                 else

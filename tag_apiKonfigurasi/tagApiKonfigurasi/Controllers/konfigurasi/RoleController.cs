@@ -47,11 +47,28 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
             return modul;
         }
 
+        private static bool ShouldFilterHrdModul(string? idModul, string? requestModul) =>
+            string.Equals(idModul, "HRD", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(requestModul, "HRD", StringComparison.OrdinalIgnoreCase);
+
+        private async Task<(bool IsValid, string? ErrorMessage)> ValidateIdModulAsync(string? idModul)
+        {
+            if (string.IsNullOrWhiteSpace(idModul))
+                return (false, "Modul wajib dipilih");
+
+            var exists = await _context.Moduls.AnyAsync(m => m.IdModul == idModul);
+            if (!exists)
+                return (false, "Modul tidak ditemukan");
+
+            return (true, null);
+        }
+
         [ApiKeyAuthorize]
         [HttpGet]
         [Route("GetListRole")]
         public async Task<ActionResult<PaginatedResponse<ViewRoleDto>>> GetListRole(
         [FromQuery] string? filter = null,
+        [FromQuery] string? idModul = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
         {
@@ -62,7 +79,12 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                 if (pageSize < 1 || pageSize > 100) pageSize = 10;
 
                 // Start with base query
-                var query = roleManager.Roles.AsQueryable();
+                var query = roleManager.Roles
+                    .Include(x => x.Modul)
+                    .AsQueryable();
+
+                if (ShouldFilterHrdModul(idModul, GetRequestModul()))
+                    query = query.Where(x => x.IdModul == "HRD");
 
                 // Apply name filter if provided
                 if (!string.IsNullOrEmpty(filter))
@@ -86,6 +108,8 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                         Access = user.Access,
                         Keterangan = user.Keterangan,
                         Photo = user.Photo,
+                        IdModul = user.IdModul,
+                        NamaModul = user.Modul != null ? user.Modul.NamaModul : user.IdModul,
                         //AccesDefault = xData.GetListMenu().ToList()
                     })
                     .ToListAsync();
@@ -128,6 +152,7 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                         Access = role.Access,
                         Keterangan = role.Keterangan,
                         Photo = role.Photo,
+                        IdModul = role.IdModul,
                     }));
             }
             catch (Exception ex)
@@ -154,8 +179,18 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                     return Ok(ApiResponse<object>.Error("Data not found", "404"));
                 }
 
+                if (ShouldFilterHrdModul(null, GetRequestModul()))
+                    updateRoleDto.IdModul = "HRD";
+
+                var modulValidation = await ValidateIdModulAsync(updateRoleDto.IdModul);
+                if (!modulValidation.IsValid)
+                {
+                    return Ok(ApiResponse<object>.Error(modulValidation.ErrorMessage!, "400"));
+                }
+
                 // Update role properties
                 role.Name = updateRoleDto.Name;
+                role.IdModul = updateRoleDto.IdModul;
                 var requestModul = GetRequestModul();
                 if (requestModul != null && requestModul.Equals("HRD", StringComparison.OrdinalIgnoreCase))
                 {
@@ -199,12 +234,22 @@ namespace tagApiKonfigurasi.Controllers.konfigurasi
                     return Ok(ApiResponse<object>.Error("Role name is required", "400"));
                 }
 
+                if (ShouldFilterHrdModul(null, GetRequestModul()))
+                    createRoleDto.IdModul = "HRD";
+
+                var modulValidation = await ValidateIdModulAsync(createRoleDto.IdModul);
+                if (!modulValidation.IsValid)
+                {
+                    return Ok(ApiResponse<object>.Error(modulValidation.ErrorMessage!, "400"));
+                }
+
                 var role = new ApplicationRole
                 {
                     Name = createRoleDto.Name,
                     Access = createRoleDto.Access,
                     Keterangan = createRoleDto.Keterangan,
-                    Photo = string.IsNullOrEmpty(createRoleDto.Photo) ? null : createRoleDto.Photo
+                    Photo = string.IsNullOrEmpty(createRoleDto.Photo) ? null : createRoleDto.Photo,
+                    IdModul = createRoleDto.IdModul,
                 };
 
                 var result = await roleManager.CreateAsync(role);

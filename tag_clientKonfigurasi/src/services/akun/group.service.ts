@@ -32,8 +32,11 @@ export async function fetchGroups(
   return json;
 }
 
-export async function fetchAccessRoles() {
-  const res = await authFetch(ACCESS_ROLE_URL);
+export async function fetchAccessRoles(modul?: string) {
+  const query = modul
+    ? `?modul=${encodeURIComponent(modul)}`
+    : '';
+  const res = await authFetch(`${ACCESS_ROLE_URL}${query}`);
   const json = await res.json();
 
   if (!res.ok) {

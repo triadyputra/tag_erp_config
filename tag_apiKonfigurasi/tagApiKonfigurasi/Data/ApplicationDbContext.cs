@@ -99,6 +99,38 @@ namespace tagApiKonfigurasi.Data
                     .HasMaxLength(50)
                     .IsRequired();
             });
+
+            // =========================
+            // ApplicationRole → Moduls
+            // =========================
+            builder.Entity<ApplicationRole>(entity =>
+            {
+                entity.Property(x => x.IdModul)
+                    .HasMaxLength(450);
+
+                entity.HasOne(x => x.Modul)
+                    .WithMany()
+                    .HasForeignKey(x => x.IdModul)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // =========================
+            // ApplicationUser → Moduls
+            // =========================
+            builder.Entity<ApplicationUser>(entity =>
+            {
+                entity.Property(x => x.NikSistag)
+                    .HasMaxLength(50)
+                    .IsRequired();
+
+                entity.Property(x => x.IdModul)
+                    .HasMaxLength(450);
+
+                entity.HasOne(x => x.Modul)
+                    .WithMany()
+                    .HasForeignKey(x => x.IdModul)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
         }
 
     }

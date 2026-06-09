@@ -6,8 +6,6 @@ import {
   Button,
   Dialog,
   DialogContent,
-  DialogContentText,
-  DialogTitle,
   FormLabel,
   TextField,
   CircularProgress,
@@ -15,15 +13,18 @@ import {
   Divider,
   DialogActions,
   Typography,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import NestedAccessCheckbox from './NestedAccessCheckbox';
 import { GroupList } from '@/app/(DashboardLayout)/types/feature/konfigurasi/group';
 import DialogHeader from '@/app/components/DialogHeader/DialogHeader';
 import { IconDeviceFloppy } from '@tabler/icons-react';
+import { useComboModul } from '@/hooks/useComboGroup';
+import { fetchAccessRoles } from '@/services/akun/group.service';
 
 interface FormGroupProps {
   groupToEdit: GroupList | null;
-  accessRoles: any[];
   onClose: () => void;
   onSubmit: (payload: GroupList) => Promise<void>;
 }
@@ -34,23 +35,28 @@ const emptyGroup: GroupList = {
   Access: '',
   Keterangan: '',
   Photo: '',
+  IdModul: '',
 };
 
 const FormGroup: React.FC<FormGroupProps> = ({
   groupToEdit,
-  accessRoles,
   onClose,
   onSubmit,
 }) => {
+  const { moduls, loading: loadingModul } = useComboModul();
   const [values, setValues] = useState<GroupList>(emptyGroup);
   const [accessList, setAccessList] = useState<
     { IdController: string; IdAction: string }[]
   >([]);
+  const [accessRoles, setAccessRoles] = useState<any[]>([]);
+  const [loadingAccess, setLoadingAccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [errors, setErrors] = useState<{
+    IdModul?: string;
     Name?: string;
     Access?: string;
+    Keterangan?: string;
   }>({});
 
   /* =======================
@@ -58,13 +64,7 @@ const FormGroup: React.FC<FormGroupProps> = ({
    * ======================= */
   useEffect(() => {
     if (!groupToEdit) {
-        setValues({
-        Id: '',
-        Name: '',
-        Access: '',
-        Keterangan: '',
-        Photo: '',
-        });
+        setValues(emptyGroup);
         setAccessList([]);
         return;
     }
@@ -75,6 +75,8 @@ const FormGroup: React.FC<FormGroupProps> = ({
         Access: groupToEdit.Access ?? '',
         Keterangan: groupToEdit.Keterangan ?? '',
         Photo: groupToEdit.Photo ?? '',
+        IdModul: groupToEdit.IdModul ?? '',
+        NamaModul: groupToEdit.NamaModul,
     });
 
     try {
@@ -88,8 +90,42 @@ const FormGroup: React.FC<FormGroupProps> = ({
     }
 	}, [groupToEdit]);
 
+  useEffect(() => {
+    if (!groupToEdit) {
+      setAccessRoles([]);
+      return;
+    }
+
+    let active = true;
+
+    async function loadAccessRoles() {
+      try {
+        setLoadingAccess(true);
+        const data = await fetchAccessRoles();
+        if (active) {
+          setAccessRoles(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error(err);
+        if (active) setAccessRoles([]);
+      } finally {
+        if (active) setLoadingAccess(false);
+      }
+    }
+
+    loadAccessRoles();
+
+    return () => {
+      active = false;
+    };
+  }, [groupToEdit]);
+
   const validate = () => {
-    const newErrors: any = {};
+    const newErrors: typeof errors = {};
+
+    if (!values.IdModul || values.IdModul.trim() === '') {
+      newErrors.IdModul = 'Modul wajib dipilih';
+    }
 
     if (!values.Name || values.Name.trim() === "") {
       newErrors.Name = "Nama Group wajib diisi";
@@ -136,9 +172,6 @@ const FormGroup: React.FC<FormGroupProps> = ({
 
   return (
     <Dialog open={!!groupToEdit} onClose={onClose} maxWidth="md" fullWidth>
-      {/* <DialogTitle variant="h5">
-        {values.Id ? 'Edit Group' : 'Tambah Group Baru'}
-      </DialogTitle> */}
       <DialogHeader
         title={values.Id ? "Edit Group" : "Tambah Group"}
         subtitle="Pengisian dan pengelolaan informasi Group pengguna"
@@ -151,6 +184,44 @@ const FormGroup: React.FC<FormGroupProps> = ({
         <DialogContent>
           <Box mt={3}>
             <Grid container spacing={3}>
+              {/* MODUL */}
+              <Grid
+                size={{
+                  xs: 12,
+                  lg: 12,
+                }}
+              >
+                <FormLabel>Modul</FormLabel>
+                <Select
+                  fullWidth
+                  size="small"
+                  displayEmpty
+                  value={values.IdModul}
+                  error={!!errors.IdModul}
+                  disabled={loadingModul}
+                  onChange={(e) => {
+                    setValues({ ...values, IdModul: e.target.value });
+                    if (errors.IdModul) {
+                      setErrors({ ...errors, IdModul: undefined });
+                    }
+                  }}
+                >
+                  <MenuItem value="" disabled>
+                    {loadingModul ? 'Memuat modul...' : 'Pilih modul'}
+                  </MenuItem>
+                  {moduls.map((modul) => (
+                    <MenuItem key={modul.value} value={modul.value}>
+                      {modul.title} ({modul.value})
+                    </MenuItem>
+                  ))}
+                </Select>
+                {errors.IdModul && (
+                  <Typography color="error" fontSize={12} mt={0.5}>
+                    {errors.IdModul}
+                  </Typography>
+                )}
+              </Grid>
+
               {/* NAMA GROUP */}
               <Grid
                 size={{
@@ -168,7 +239,6 @@ const FormGroup: React.FC<FormGroupProps> = ({
                   onChange={(e) => {
                     setValues({ ...values, Name: e.target.value });
 
-                    // clear error realtime
                     if (errors.Name) {
                       setErrors({ ...errors, Name: undefined });
                     }
@@ -188,9 +258,14 @@ const FormGroup: React.FC<FormGroupProps> = ({
                   size="small"
                   fullWidth
                   value={values.Keterangan}
-                  onChange={(e) =>
-                    setValues({ ...values, Keterangan: e.target.value })
-                  }
+                  error={!!errors.Keterangan}
+                  helperText={errors.Keterangan}
+                  onChange={(e) => {
+                    setValues({ ...values, Keterangan: e.target.value });
+                    if (errors.Keterangan) {
+                      setErrors({ ...errors, Keterangan: undefined });
+                    }
+                  }}
                 />
               </Grid>
 
@@ -201,12 +276,18 @@ const FormGroup: React.FC<FormGroupProps> = ({
                   lg: 12,
                 }}
               >
-                <NestedAccessCheckbox
-                  key={groupToEdit?.Id || 'new'} // ✅ WAJIB biar reset
-                  data={accessRoles}
-                  selected={accessList}
-                  onChange={setAccessList}
-                />
+                {loadingAccess ? (
+                  <Box display="flex" justifyContent="center" py={2}>
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : (
+                  <NestedAccessCheckbox
+                    key={groupToEdit?.Id || 'new'}
+                    data={accessRoles}
+                    selected={accessList}
+                    onChange={setAccessList}
+                  />
+                )}
               </Grid>
               
               {errors.Access && (
@@ -214,36 +295,6 @@ const FormGroup: React.FC<FormGroupProps> = ({
                   {errors.Access}
                 </Typography>
               )}
-              {/* ACTION */}
-              {/* <Grid
-                size={{
-                  xs: 12,
-                  lg: 12,
-                }}
-              >
-                <Box display="flex" justifyContent="flex-end">
-                  <Button
-                    sx={{ mr: 1 }}
-                    variant="outlined"
-                    onClick={onClose}
-                    disabled={isSubmitting}
-                  >
-                    Batal
-                  </Button>
-
-                  <Button
-                    variant="contained"
-                    type="submit"
-                    disabled={isSubmitting || !values.Name}
-                  >
-                    {isSubmitting ? (
-                      <CircularProgress size={20} color="inherit" />
-                    ) : (
-                      'Simpan'
-                    )}
-                  </Button>
-                </Box>
-              </Grid> */}
             </Grid>
           </Box>
         </DialogContent>

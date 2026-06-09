@@ -6,5 +6,7 @@ namespace tagApiKonfigurasi.Services.MasterKtp
     {
         Task<List<MasterKtpLookupDto>> SearchAsync(string? nama, string? cabang);
         Task<MasterKtpLookupDto?> GetByNoKtpAsync(string noktp);
+
+        //Task<KaryawanProfile?> GetDetailKaryawan(string noktp);
     }
 }

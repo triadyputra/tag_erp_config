@@ -6,5 +6,6 @@ namespace tagApiKonfigurasi.Model.DTO
         public string NAMALENGKAP { get; set; } = "";
         public string KELAMIN { get; set; } = "";
         public string KDCABANG { get; set; } = "";
+        public string? NIKSISTAG { get; set; }
     }
 }

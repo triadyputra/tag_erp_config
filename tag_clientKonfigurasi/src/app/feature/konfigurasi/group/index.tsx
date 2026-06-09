@@ -31,7 +31,6 @@ import { useSnackbar } from '@/app/context/SnackbarContext';
 import { GroupList } from '@/app/(DashboardLayout)/types/feature/konfigurasi/group';
 import {
   deleteGroup,
-  fetchAccessRoles,
   fetchGroups,
   saveGroup,
 } from '@/services/akun/group.service';
@@ -66,17 +65,9 @@ const GroupListComponent = () => {
       })
   );
 
-  const { data: accessRoleData } = useSWR(
-    'access-roles',
-    fetchAccessRoles
-  );
-
   const groups: GroupList[] = data?.Data ?? [];
   const totalCount: number = data?.TotalCount ?? 0;
   const loading = isLoading && !data;
-
-  // ✅ INI YANG TADI HILANG
-  const accessRoles = accessRoleData ?? [];
 
   /* =======================
    * SELECT LOGIC
@@ -220,7 +211,6 @@ const GroupListComponent = () => {
           {editingGroup && (
             <FormGroup
               groupToEdit={editingGroup}
-              accessRoles={accessRoles}
               onClose={() => setEditingGroup(null)}
               onSubmit={handleSaveGroup}
             />
@@ -230,7 +220,7 @@ const GroupListComponent = () => {
             access={{ subject: 'Role', action: 'PostRole' }}
             color="primary"
                       variant="contained"
-            onClick={() => setEditingGroup({} as GroupList)}
+            onClick={() => setEditingGroup({ IdModul: '' } as GroupList)}
           >
             Tambah Group
           </AccessButton>
@@ -272,6 +262,7 @@ const GroupListComponent = () => {
                 />
               </TableCell>
               <TableCell sx={headerStyle}>Nama Group</TableCell>
+              <TableCell sx={headerStyle}>Modul</TableCell>
               <TableCell sx={headerStyle}>Keterangan</TableCell>
               <TableCell sx={headerStyle} align="right">Actions</TableCell>
             </TableRow>
@@ -280,13 +271,13 @@ const GroupListComponent = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} align="center">
+                <TableCell colSpan={5} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             ) : groups.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} align="center">
+                <TableCell colSpan={5} align="center">
                   No data found
                 </TableCell>
               </TableRow>
@@ -300,6 +291,7 @@ const GroupListComponent = () => {
                     />
                   </TableCell>
                   <TableCell>{group.Name}</TableCell>
+                  <TableCell>{group.NamaModul || group.IdModul || '-'}</TableCell>
                   <TableCell>{group.Keterangan}</TableCell>
                   
 

@@ -36,12 +36,24 @@ namespace tagApiKonfigurasi.Controllers
             _masterKtpLookup = masterKtpLookup;
         }
 
+        private string? GetRequestModul() =>
+            HttpContext.Request.Headers["X-Modul"].FirstOrDefault();
+
         [HttpGet]
         [Route("ComboGroup")]
-        public async Task<IActionResult> ComboGroup()
+        public async Task<IActionResult> ComboGroup([FromQuery] string? idModul = null)
         {
-            var Group = await roleManager.Roles.ToListAsync();
-            var listGroup = Group.Select(p => new { value = p.Name, title = p.Name });
+            var query = roleManager.Roles.AsQueryable();
+
+            var requestModul = GetRequestModul();
+            if (string.Equals(idModul, "HRD", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(requestModul, "HRD", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(r => r.IdModul == "HRD");
+            }
+
+            var group = await query.OrderBy(r => r.Name).ToListAsync();
+            var listGroup = group.Select(p => new { value = p.Name, title = p.Name });
 
             return Ok(listGroup);
         }
@@ -53,6 +65,18 @@ namespace tagApiKonfigurasi.Controllers
             var opt = await _context.TblCabang.Where(x => x.Status && x.KdGroup=="TAG").ToListAsync();
             var listOpt = opt.Select(p => new { value = p.KdCabang, title = p.NmCabang });
             return Ok(listOpt);
+        }
+
+        [HttpGet]
+        [Route("ComboModul")]
+        public async Task<IActionResult> ComboModul()
+        {
+            var moduls = await _context.Moduls
+                .OrderBy(x => x.NoUrut)
+                .Select(p => new { value = p.IdModul, title = p.NamaModul })
+                .ToListAsync();
+
+            return Ok(moduls);
         }
 
         //[HttpGet]

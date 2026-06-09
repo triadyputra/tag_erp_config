@@ -14,6 +14,11 @@ namespace tagApiKonfigurasi.Model.DTO
 
         public string? NoKtp { get; set; }
 
+        [Required(ErrorMessage = "NIK Sistag wajib diisi")]
+        public string? NikSistag { get; set; }
+
+        public string? IdModul { get; set; }
+
         public string? Email { get; set; }
         public string? Photo { get; set; }
         public bool Active { get; set; }

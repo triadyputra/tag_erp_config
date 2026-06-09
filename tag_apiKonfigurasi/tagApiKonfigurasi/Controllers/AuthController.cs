@@ -498,7 +498,8 @@ namespace tagApiKonfigurasi.Controllers
                         avatar = user.Photo,
                         cabang = user.Cabang,
                         group = userRoles,
-                        role = userRoles.FirstOrDefault()
+                        role = userRoles.FirstOrDefault(),
+                        niksistag = user.NikSistag
                     },
                     acces = sendAccess,
                     Menu = dynamicMenu // 🔥 FULL DYNAMIC

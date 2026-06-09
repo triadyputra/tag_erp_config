@@ -140,6 +140,10 @@ namespace tagApiKonfigurasi.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("IdModul")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("Keterangan")
                         .HasColumnType("nvarchar(max)");
 
@@ -155,6 +159,8 @@ namespace tagApiKonfigurasi.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IdModul");
 
                     b.HasIndex("NormalizedName")
                         .IsUnique()
@@ -194,11 +200,20 @@ namespace tagApiKonfigurasi.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<string>("IdModul")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("bit");
 
                     b.Property<DateTimeOffset?>("LockoutEnd")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("NikSistag")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("NoKtp")
                         .HasMaxLength(50)
@@ -238,6 +253,8 @@ namespace tagApiKonfigurasi.Migrations
                         .HasColumnType("nvarchar(256)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IdModul");
 
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
@@ -640,6 +657,26 @@ namespace tagApiKonfigurasi.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("tagApiKonfigurasi.Model.ApplicationRole", b =>
+                {
+                    b.HasOne("tagApiKonfigurasi.Model.Konfigurasi.MstModul", "Modul")
+                        .WithMany()
+                        .HasForeignKey("IdModul")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Modul");
+                });
+
+            modelBuilder.Entity("tagApiKonfigurasi.Model.ApplicationUser", b =>
+                {
+                    b.HasOne("tagApiKonfigurasi.Model.Konfigurasi.MstModul", "Modul")
+                        .WithMany()
+                        .HasForeignKey("IdModul")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Modul");
                 });
 
             modelBuilder.Entity("tagApiKonfigurasi.Model.Konfigurasi.MstAction", b =>

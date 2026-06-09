@@ -82,11 +82,48 @@ export function useComboCabang() {
   return { cabang, loading };
 }
 
+export function useComboModul() {
+  const [moduls, setModuls] = useState<ComboItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    async function fetchModul() {
+      try {
+        const res = await authFetch(`${BASE_URL}Combo/ComboModul`);
+        const json = await res.json();
+
+        if (active && Array.isArray(json)) {
+          const mapped: ComboItem[] = json.map((x: any) => ({
+            value: String(x.value ?? x.IdModul ?? ""),
+            title: String(x.title ?? x.NamaModul ?? ""),
+          }));
+          setModuls(mapped);
+        }
+      } catch (err) {
+        console.error("Gagal load combo modul", err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    fetchModul();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return { moduls, loading };
+}
+
 export interface MasterKtpOption {
   NOKTP: string;
   NAMALENGKAP: string;
   KELAMIN?: string;
   KDCABANG?: string;
+  NIKSISTAG?: string;
 }
 
 function parseComboApiJson(json: any) {
